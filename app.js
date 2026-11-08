@@ -93,7 +93,6 @@ document.getElementById("radius-select").addEventListener("change", (e) => {
   updateParams();
 });
 
-
 // ---------------------------------------------------------------------
 // 3. SMALL HELPERS FOR DISPLAY
 // ---------------------------------------------------------------------
@@ -176,7 +175,6 @@ search.addWidgets([
       },
     },
   }),
-
 
   infiniteHits({
     container: "#hits",

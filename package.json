@@ -1,0 +1,14 @@
+
+{
+  "name": "opentable-algolia-demo",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "data": "node scripts/prepare-data.mjs",
+    "push": "node --env-file=.env scripts/push-to-algolia.mjs"
+  },
+  "dependencies": {
+    "algoliasearch": "5.60.0"
+  }
+}

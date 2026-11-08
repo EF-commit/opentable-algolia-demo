@@ -23,8 +23,10 @@ const search = instantsearch({
 const { searchBox, infiniteHits, hierarchicalMenu, refinementList, ratingMenu,
   sortBy, stats, clearRefinements, currentRefinements } = instantsearch.widgets;
 
-
-  let userLocation = null;   // { lat, lng } or null (= use IP address)
+// ---------------------------------------------------------------------
+// 2. LOCATION STATE (browser GPS -> fallback to IP -> or a chosen city)
+// ---------------------------------------------------------------------
+let userLocation = null;   // { lat, lng } or null (= use IP address)
 let locationLabel = "your approximate location";
 let radius = "all";        // "all" or a number of metres
 

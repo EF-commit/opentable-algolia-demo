@@ -1,16 +1,17 @@
-# TableFinder – restaurant discovery prototype for OpenTable, powered by Algolia
+# TableFinder – restaurant search prototype for OpenTable (Algolia)
 
-**Live demo:** _paste your GitHub Pages link here_
+Live demo: _paste your GitHub Pages link here_
 
-OpenTable has two kinds of diners. Some **know** the restaurant they want: they need search that is fast,
-forgiving with spelling, and picks the right branch of a chain. Others are **exploring**: they need inspiration,
-browsing and easy refinement. This prototype serves both from one page, and sends click and booking events
-back to Algolia so search quality can be measured against conversion.
+This is my take on the OpenTable brief. From the discovery notes there are really two kinds of users. Some already
+know where they want to eat and just need to find it fast, even if they spell it wrong or the place is a chain with
+ten branches. Others are browsing and want ideas. I tried to cover both on one page, and I send click and
+"reserve" events to Algolia so search can eventually be measured against bookings, which is what OpenTable
+actually cares about.
 
-> Tip for reviewers: the dataset covers US restaurants only. If you open the demo from outside the US, pick a
-> city in the **Near** menu (e.g. New York).
+Heads up: the data only has US restaurants. If you open the demo from outside the US, pick a city in the "Near"
+menu (New York works well).
 
-## What the demo does
+## What it does
 
 | OpenTable pain point (discovery notes) | What the demo does | Algolia feature |
 |---|---|---|
@@ -20,7 +21,7 @@ back to Algolia so search quality can be measured against conversion.
 | Feels old | Results on every keystroke, shareable URLs, phone layout | InstantSearch.js, routing |
 | Conversion | "Restaurant clicked" and "Reservation started" events | Insights API → Analytics, A/B testing, Dynamic Re-Ranking, Personalization |
 
-## Architecture
+## How it fits together
 
 ```
 dataset/ (2 raw files) ─► scripts/prepare-data.mjs ─► data/restaurants.json (5,000 clean records)
@@ -31,73 +32,92 @@ dataset/ (2 raw files) ─► scripts/prepare-data.mjs ─► data/restaurants.j
 index.html + style.css + app.js (InstantSearch.js) ─────┘  search-only key, runs in the browser
 ```
 
-Configuration lives in code, so it is versioned in Git and can be re-applied at any time.
+I kept all the Algolia configuration in a script instead of clicking it together in the dashboard. That way it's
+in Git, I can see what changed between runs, and I can rebuild the index from scratch with one command.
 
-## Data preparation (`scripts/prepare-data.mjs`)
+## Data prep (`scripts/prepare-data.mjs`)
 
-- **Join:** `restaurants_list.json` (name, address, GPS) + `restaurants_info.csv` (cuisine, stars, price) on
-  `objectID`. 5,000 / 5,000 matched. The JSON ID is a number and the CSV ID is text, so both are compared as text.
-- **Cleaning:**
-  - Cuisine labels normalised (e.g. `Steak` → `Steakhouse`, `Gastro Pub` → `Gastropub`): 274 records fixed.
-  - 114 cuisines grouped into 10 families for a two-level cuisine menu.
-  - **Price conflict:** 220 records disagree between the JSON `price` and the CSV `price_range`. I used the CSV
-    text as the source of truth (it is what diners see) and derived `price_level` (2–4) for sorting. I would
-    confirm this choice with OpenTable.
-  - Stars and review counts converted from text to numbers; links switched to `https`; Diners Club and Carte
-    Blanche mapped to Discover (same card network).
-- **Enrichment:**
-  - `popularity`: a Bayesian average of stars and review count. Ratings cluster around 4.3, so raw stars barely
-    separate restaurants, and a 5.0 with 3 reviews should not beat a 4.7 with 2,000.
-  - `experiences`: rule-based discovery tags (Date night, Special occasion, Business dinner, Casual & affordable,
-    Hidden gem, Crowd favourite). In production these would come from review text.
-  - `brand`, `branch`, `same_name_count`: help users pick the right location of a chain.
+The two files describe the same 5,000 restaurants: the JSON has name, address and coordinates, the CSV has
+cuisine, stars and price. I join them on `objectID`. Every record matched, but the ID is a number in one file and
+a string in the other, so I compare them as strings.
 
-## Relevance configuration (`scripts/push-to-algolia.mjs`)
+Cleanup I did:
 
-- **Searchable attributes:** `name` first (known-item search), then cuisine, neighbourhood + city,
-  experiences + dining style, area, address, postal code. Everything except name, address and postal code is
-  `unordered`.
-- **Ranking:** Algolia's default tie-breaking chain. `geo` decides when a location is known.
-- **Custom ranking:** `desc(popularity)`, which only breaks ties between equally relevant results.
-- **Distance bands:** `aroundPrecision: 1000` in the front end, so places within the same 1 km band count as
-  equally close and the better restaurant wins.
-- **Typos:** default tolerance; no typos on numbers or postal codes; plurals ignored; stop words kept (names like
-  "The Palm"); `removeWordsIfNoResults: allOptional` so long queries don't dead-end.
-- **Sorting:** standard replicas for Top rated, Most reviewed and Price low → high.
-- **Synonyms:** steak/steakhouse/chophouse, bbq/barbecue, pizza/pizzeria, nyc/new york…; one-way
-  sushi → japanese, veggie → vegetarian/vegan, romantic → date night.
-- **Rules (3, the free-plan limit):** city detection (`sushi san diego` → filter San Diego), `cheap` → price
-  filter, `near me` → removed because geo ranking handles location. "Romantic" was moved from a rule to a
-  one-way synonym because it only needs to match a tag, not change the search.
-- **Featured near you:** a second search on the same index (nested `index` widget) that inherits the user's
-  location and filters, looks within 5 miles, and uses one distance band so popularity alone sets the order.
-- **Location:** browser GPS → IP location → city picker. Results are limited to **30 miles** of the user or chosen
-  city by default (`aroundRadius`), so "ruths cris" near New York shows the New Jersey branch, not Pittsburgh.
-  "Any distance" is available for people planning a trip. When nothing matches nearby, a "Closest matches further
-  away" row suggests the nearest matching restaurants (a second search with no radius), so there is no dead end.
-  Users far from every restaurant get a warning.
+- Merged cuisine labels that mean the same thing (`Steak` and `Steakhouse`, `Gastro Pub` and `Gastropub`).
+  That touched 274 records. Without it, filtering on Steakhouse misses 123 places.
+- Grouped the 114 cuisines into 10 families so the cuisine menu has two levels instead of one huge list.
+- Price: 220 restaurants have a different price in the JSON than in the CSV. I went with the CSV text because
+  it's what diners actually see, and turned it into a number (2–4) for sorting. This is something I'd check with
+  OpenTable rather than decide alone.
+- Stars and review counts were stored as text, so I converted them to numbers. Also switched links to https and
+  mapped Diners Club / Carte Blanche to Discover (same card network).
 
-## Testing and what I changed
+Things I added:
 
-See [`relevance-tests.md`](relevance-tests.md) for the searches I ran and the results. Issues found and fixed
-while testing:
+- `popularity`, a Bayesian average of stars and number of reviews. Almost every restaurant sits around 4.3
+  stars, so raw stars don't tell them apart, and I didn't want a 5.0 with 3 reviews beating a 4.7 with 2,000.
+- `experiences`: simple rules that tag places as Date night, Hidden gem, Business dinner and so on. They're
+  rough. In a real project these would come from review text.
+- `brand`, `branch` and `same_name_count`, to help people pick the right branch of a chain.
 
-- **Searchable-attribute syntax:** after the first upload, the dashboard showed
-  `neighborhood),unordered(city` as one attribute. The correct syntax for two same-priority unordered
-  attributes is `unordered(neighborhood,city)`. Neighbourhood and city searches only matched after the fix.
-- **Free-plan rule limit:** the plan allows 3 rules; I had 4. Kept the three that change the search and moved
-  "romantic" to a synonym.
-- **Distances:** with `aroundPrecision` set, Algolia's `geoDistance` is expressed in precision bands, so every
-  card showed the same distance. The front end now computes the real distance (haversine) from the user's
-  position. Ranking was not affected.
-- **Testing from outside the data's coverage:** from London the first version gave no hint why results were
-  thousands of miles away. It now warns users who are far from every restaurant.
-- **Photos:** the dataset's image links now return a generic placeholder. Cards use one free Unsplash food photo
-  per cuisine family (labelled as illustrative in the footer), with an illustration as fallback. In production
-  OpenTable would index its current restaurant photo URLs.
-- _Add your own findings from the test log here._
+## Search configuration (`scripts/push-to-algolia.mjs`)
 
-## Run it yourself
+Searchable attributes: `name` first, because the most common job is finding a place you already know. Then
+cuisine, neighbourhood and city, experiences and dining style, area, address and postal code. Everything except
+name, address and postal code is `unordered`, since where a word sits inside "cuisine" doesn't mean anything.
+
+Ranking is Algolia's default chain. `geo` kicks in when we know where the user is, and `desc(popularity)` is the
+custom ranking, so popularity only decides between results that are equally good matches. In the front end I set
+`aroundPrecision: 1000`, which treats places within the same 1 km band as equally close. Otherwise a mediocre
+place 50 metres closer would always beat a much better one.
+
+Other settings:
+
+- Typos: default tolerance, but none on numbers or postal codes (10012 and 10021 are different places).
+  Plurals ignored. I kept stop words because a lot of names start with "The".
+- `removeWordsIfNoResults: none`. I started with `allOptional` and changed it after testing (see below).
+- Sorting uses three standard replicas: Top rated, Most reviewed, Price low to high.
+- Synonyms: steak/steakhouse/chophouse, bbq/barbecue, pizza/pizzeria, nyc/new york and a few more. Some are
+  one-way, like sushi → japanese, so "sushi" shows Japanese places but "japanese" doesn't fill up with sushi bars.
+- Rules: the free plan only allows 3, so I picked the ones that change the search. "sushi san diego" becomes
+  a San Diego filter, "cheap" becomes a price filter, and "near me" gets dropped because location is already
+  handled by geo. I'd also written a "romantic" rule, but it only needed to match the Date night tag, so I turned
+  it into a synonym instead.
+
+Location works like this: browser GPS if the user allows it, otherwise their IP, and there's a city picker for
+everything else. By default results stay within 30 miles, so "ruths cris" near New York shows the New Jersey
+branch and not Pittsburgh. You can switch to "Any distance" if you're planning a trip. If nothing matches nearby,
+a "Closest matches further away" row shows the nearest options instead of a dead end. And if you're nowhere near
+any restaurant (like me testing from London), you get a warning to pick a city.
+
+"Featured near you" is a second search on the same index. It uses the same location and filters, looks within
+5 miles, and puts everything in one distance band, so popularity alone decides the order.
+
+## What I found while testing
+
+All the searches I ran and what came back are in [`relevance-tests.md`](relevance-tests.md). The things that
+made me change something:
+
+- After the first upload I checked the config in the dashboard and saw `neighborhood),unordered(city` listed as
+  one attribute. My syntax was wrong. The right way to put two attributes on the same level is
+  `unordered(neighborhood,city)`. Neighbourhood and city searches only started working after that.
+- The upload failed on rules at first: the free plan allows 3 and I had 4. That's how "romantic" became a synonym.
+- Every card showed the same distance. It turns out that with `aroundPrecision` set, Algolia returns
+  `geoDistance` in precision bands, not metres. Ranking was fine, only the display was wrong, so I now calculate
+  the real distance in the browser (haversine).
+- Testing from London, the first version just showed restaurants 3,000+ miles away with no explanation. Added
+  the warning.
+- "capital gri" near New York returned 46 random "...Grill" places. There's no Capital Grille within 30 miles,
+  so `allOptional` quietly dropped "capital" and matched "grill". That's worse than nothing for someone looking
+  for a specific restaurant. With `none`, the page says nothing matches nearby and the closest-matches row
+  offers The Capital Grille in Pittsburgh. The downside is that long, chatty searches don't degrade as nicely.
+- The city rule only filters on the exact `city` value. "sushi san diego" returns 2 places, because sushi
+  places in Coronado or Carlsbad have a different city. Filtering on the metro `area` would be better. I left it
+  because I'm out of rules on the free plan.
+- The photo links in the dataset all return the same placeholder now. The cards use one free Unsplash food photo
+  per cuisine family (the footer says they're illustrative). In production you'd use OpenTable's current photos.
+
+## Running it
 
 ```
 npm install
@@ -105,10 +125,19 @@ copy .env.example .env      (then add your Algolia App ID and admin/write key)
 npm run data                (creates data/restaurants.json)
 npm run push                (uploads records and settings to Algolia)
 ```
+
 Then open `index.html` with VS Code Live Server.
 
-## With more time
+## How I built it
 
-Query Suggestions (autocomplete), Personalization and Dynamic Re-Ranking driven by real booking events, an A/B
-test of the custom ranking, real-time availability as a filter, NeuralSearch for natural-language queries
-("quiet place for a business lunch"), real photos and review-based tags, virtual replicas at production scale.
+I used AI tools to learn the stack, write and debug code, as the brief encourages. The testing was done on the
+live index, and I can walk through every setting and why it's there.
+
+## If I had more time
+
+- Autocomplete with Query Suggestions.
+- Personalization and Dynamic Re-Ranking once there are real booking events, plus an A/B test on the custom ranking.
+- Availability (time slots) as a filter. That's probably what diners want most and it isn't in the data.
+- NeuralSearch for searches like "quiet place for a business lunch".
+- Real photos and tags pulled from reviews.
+- Virtual replicas instead of standard ones at OpenTable's scale.

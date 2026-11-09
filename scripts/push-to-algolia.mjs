@@ -47,8 +47,8 @@ let res = await client.setSettings({
     searchableAttributes: [
       "name",                                   // known-item search: name wins
       "unordered(cuisine)",                     // "sushi", "italian"
-      "unordered(neighborhood),unordered(city)",// "soho", "denver"
-      "unordered(experiences),unordered(dining_style)", // "date night", "fine dining"
+      "unordered(neighborhood, city)", // "soho", "denver"
+      "unordered(experiences, dining_style)", // "date night", "fine dining"
       "unordered(area)",
       "address",
       "postal_code",

@@ -99,8 +99,8 @@ document.getElementById("radius-select").addEventListener("change", (e) => {
 // 3. SMALL HELPERS FOR DISPLAY
 // ---------------------------------------------------------------------
 const dollars = (level) => "$".repeat(level);
-const miles = (metres) => (metres / 1609).toFixed(metres < 16090 ? 1 : 0);
-const initials = (name) => name.split(" ").slice(0, 2).map((w) => w[0]).join("");
+const miles = (metres) =>
+  metres < 16090 ? (metres / 1609).toFixed(1) : Math.round(metres / 1609).toLocaleString("en-US");
 
 // Real distance in metres between two points on Earth (haversine formula)
 function haversine(a, b) {
@@ -127,6 +127,25 @@ const FAMILIES = [
   ["French & European", "🥐"], ["Latin American", "🌮"], ["Mediterranean & Middle Eastern", "🥙"],
   ["Bars & Pubs", "🍺"], ["Global & Fusion", "🌍"], ["Healthy & Plant-based", "🥗"],
 ];
+// Food photos per cuisine family (free Unsplash licence). They illustrate the
+// CUISINE, not the specific restaurant: the dataset's own photo links are stale.
+const photo = (id) => `https://images.unsplash.com/${id}?auto=format&fit=crop&w=600&h=400&q=70`;
+const FAMILY_PHOTOS = {
+  "American": photo("photo-1568901346375-23c9450c58cd"),
+  "Italian & Pizza": photo("photo-1621996346565-e3dbc646d9a9"),
+  "French & European": photo("photo-1642112177610-c1ff271857dd"),
+  "Mediterranean & Middle Eastern": photo("photo-1619941862585-cd4fa9a4c2cb"),
+  "Bars & Pubs": photo("photo-1766589152188-54bd12a5c71b"),
+  "Global & Fusion": photo("photo-1514326640560-7d063ef2aed5"),
+  "Healthy & Plant-based": photo("photo-1758721217610-a5d729a319e9"),
+  "Asian": photo("photo-1553621042-f6e147245754"),
+  "Steak & Seafood": photo("photo-1615937657715-bc7b4b7962c1"),
+  "Latin American": photo("photo-1760322328049-91bb196d41d9"),
+};
+const familyPhoto = (family) => FAMILY_PHOTOS[family];
+const hidePhoto = (event) => (event.currentTarget.style.display = "none"); // broken link -> illustration shows
+
+const familyIcon = (family) => (FAMILIES.find(([name]) => name === family) || [, "🍽️"])[1];
 const familyOrder = (name) => {
   const i = FAMILIES.findIndex(([family]) => family === name);
   return i === -1 ? 99 : i;
@@ -189,7 +208,16 @@ const featuredCarousel = instantsearch.connectors.connectHits(({ items, results,
     card.href = hit.reserve_url;
     card.target = "_blank";
     card.rel = "noopener";
-    const image = el("div", "fcard__image", initials(hit.brand));
+    const image = el("div", "fcard__image", familyIcon(hit.cuisine_hierarchy.lvl0));
+    const photoUrl = familyPhoto(hit.cuisine_hierarchy.lvl0);
+    if (photoUrl) {
+      const img = el("img");
+      img.src = photoUrl;
+      img.alt = "";
+      img.loading = "lazy";
+      img.addEventListener("error", hidePhoto);
+      image.append(img);
+    }
     image.append(el("span", "fcard__badge", "★ " + hit.stars_count.toFixed(1)));
     const body = el("div", "fcard__body");
     const distance = distanceMetres(hit);
@@ -228,12 +256,11 @@ search.addWidgets([
     showLoadingIndicator: true,
   }),
 
-  // Discovery chips (enriched "experiences" attribute)
+  // Occasions (enriched "experiences" attribute), shown in the "Occasion" panel
   refinementList({
     container: "#experiences",
     attribute: "experiences",
     sortBy: ["count:desc"],
-    cssClasses: { list: "chips__list", item: "chip", selectedItem: "chip--active" },
   }),
 
   cuisineCarousel({
@@ -273,7 +300,7 @@ search.addWidgets([
     transformItems: (items) => items.map((item) => ({
       ...item,
       label: { "cuisine_hierarchy.lvl0": "Cuisine", price_range: "Price", stars_count: "Rating",
-        dining_style: "Style", city: "City", experiences: "Experience" }[item.attribute] || item.label,
+        dining_style: "Style", city: "City", experiences: "Occasion" }[item.attribute] || item.label,
     })),
   }),
 
@@ -308,9 +335,11 @@ search.addWidgets([
         return html`
           <article class="card" onClick=${() => sendEvent("click", hit, "Restaurant Clicked")}>
             <div class="card__image">
-              <span>${initials(hit.brand)}</span>
-              <img src=${hit.image_url} alt="" loading="lazy"
-                   onError=${(e) => (e.currentTarget.style.display = "none")} />
+              <span class="card__emoji">${familyIcon(hit.cuisine_hierarchy.lvl0)}</span>
+              ${familyPhoto(hit.cuisine_hierarchy.lvl0)
+                ? html`<img src=${familyPhoto(hit.cuisine_hierarchy.lvl0)} alt="" loading="lazy" onError=${hidePhoto} />`
+                : ""}
+              <span class="card__cuisine">${hit.cuisine}</span>
             </div>
             <div class="card__body">
               <h2>${components.Highlight({ hit, attribute: "name" })}</h2>
@@ -394,11 +423,22 @@ document.addEventListener("click", (event) => {
 
 // Carousel arrows scroll the row of cuisine tiles
 const track = document.getElementById("cuisine-carousel");
-document.querySelector(".carousel__arrow--left").addEventListener("click", () => track.scrollBy({ left: -320, behavior: "smooth" }));
-document.querySelector(".carousel__arrow--right").addEventListener("click", () => track.scrollBy({ left: 320, behavior: "smooth" }));
+const leftArrow = document.querySelector(".carousel__arrow--left");
+const rightArrow = document.querySelector(".carousel__arrow--right");
+leftArrow.addEventListener("click", () => track.scrollBy({ left: -320, behavior: "smooth" }));
+rightArrow.addEventListener("click", () => track.scrollBy({ left: 320, behavior: "smooth" }));
+
+// Only show an arrow when there is something to scroll to in that direction
+function updateArrows() {
+  leftArrow.hidden = track.scrollLeft <= 4; // small tolerance for padding/snapping
+  rightArrow.hidden = track.scrollLeft + track.clientWidth >= track.scrollWidth - 4;
+}
+track.addEventListener("scroll", updateArrows);
+window.addEventListener("resize", updateArrows);
+search.on("render", updateArrows); // the number of tiles changes with the search
 
 // "Price · 1": each pill shows how many of its filters are active
-const PILL_FILTERS = { "panel-price": "price_range", "panel-style": "dining_style", "panel-city": "city" };
+const PILL_FILTERS = { "panel-occasion": "experiences", "panel-price": "price_range", "panel-style": "dining_style", "panel-city": "city" };
 search.on("render", () => {
   const state = search.helper.state;
   pills.forEach((pill) => {

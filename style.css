@@ -83,6 +83,7 @@ button { font: inherit; color: inherit; }
   width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line);
   background: white; box-shadow: 0 2px 8px rgba(0,0,0,.12); cursor: pointer; font-size: 1.3rem; line-height: 1;
 }
+.carousel__arrow[hidden] { display: none; }
 .carousel__arrow--left { left: -12px; }
 .carousel__arrow--right { right: -12px; }
 
@@ -123,7 +124,7 @@ button { font: inherit; color: inherit; }
 .pill--select::after { content: none; }
 .pill--open, .pill:hover, .ais-SortBy-select:hover { border-color: var(--ink); }
 .pill--active { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-dark); font-weight: 600; }
-.pill-sort { flex: 0 0 auto; }
+.pill-sort { flex: 0 0 auto; margin-left: auto; } /* sort sits on the right */
 .ais-ClearRefinements-button {
   background: none; border: 0; color: var(--accent); cursor: pointer; white-space: nowrap; font-weight: 600; padding: 6px;
 }
@@ -167,11 +168,11 @@ button { font: inherit; color: inherit; }
 }
 .fcard:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(31,36,48,.09); }
 .fcard__image {
-  position: relative; height: 96px; display: grid; place-items: center;
-  background: linear-gradient(135deg, #fbe3e5, #f7efe6); font-size: 1.7rem; font-weight: 700; color: var(--accent-dark);
+  position: relative; height: 110px; display: grid; place-items: center; overflow: hidden;
+  background: linear-gradient(135deg, #fbe3e5, #f7efe6); font-size: 2.2rem;
 }
 .fcard__badge {
-  position: absolute; top: 8px; left: 8px; background: white; color: #b7791f;
+  position: absolute; z-index: 1; top: 8px; left: 8px; background: white; color: #b7791f;
   border-radius: 999px; padding: 2px 8px; font-size: .75rem; font-weight: 700;
 }
 .fcard__body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 2px; }
@@ -195,11 +196,18 @@ button { font: inherit; color: inherit; }
 }
 .card:hover { transform: translateY(-3px); box-shadow: 0 10px 24px rgba(31,36,48,.09); }
 .card__image {
-  position: relative; height: 150px; display: grid; place-items: center;
+  position: relative; height: 150px; display: grid; place-items: center; overflow: hidden;
   background: linear-gradient(135deg, #fbe3e5, #f7efe6);
   font-size: 2.2rem; font-weight: 700; color: var(--accent-dark);
 }
-.card__image img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.card__emoji { font-size: 3rem; line-height: 1; }
+.card__image img, .fcard__image img {
+  position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover;
+}
+.card__cuisine {
+  position: absolute; z-index: 1; bottom: 10px; left: 10px; background: white; color: var(--ink);
+  border-radius: 999px; padding: 2px 10px; font-size: .75rem; font-weight: 600;
+}
 .card__body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 4px; flex: 1; }
 .card h2 { font-size: 1.06rem; margin: 0; }
 .card p { margin: 0; font-size: .9rem; }
@@ -222,6 +230,8 @@ mark, .ais-Highlight-highlighted { background: #ffe58f; color: inherit; border-r
 }
 .ais-InfiniteHits-loadMore--disabled { display: none; }
 .empty { background: white; border: 1px solid var(--line); border-radius: var(--radius); padding: 30px; text-align: center; }
+
+.footer { color: var(--muted); font-size: .8rem; padding: 10px 16px 30px; border-top: 1px solid var(--line); }
 
 /* ---------- Phones ---------- */
 @media (max-width: 760px) {

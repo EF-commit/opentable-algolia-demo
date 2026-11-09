@@ -44,10 +44,9 @@
         </div>
         <div id="sub-cuisines" class="sub-cuisines"></div>
 
-        <!-- Row 2: one line of filter pills -->
+        <!-- Row 2: one line of filter pills (sort on the right) -->
         <div class="filterbar">
-          <div id="experiences" class="chips"></div>
-          <span class="filterbar__divider"></span>
+          <button class="pill" data-panel="panel-occasion">Occasion</button>
           <button class="pill" data-panel="panel-price">Price</button>
           <button class="pill" data-panel="panel-rating">Rating</button>
           <button class="pill" data-panel="panel-style">Dining style</button>
@@ -64,6 +63,7 @@
 
         <!-- Drop-down panels: one opens under the bar when its pill is clicked -->
         <div class="panels">
+          <div class="panel" id="panel-occasion"><div id="experiences"></div></div>
           <div class="panel" id="panel-price"><div id="price"></div></div>
           <div class="panel" id="panel-rating"><div id="rating"></div></div>
           <div class="panel" id="panel-style"><div id="dining-style"></div></div>
@@ -84,6 +84,10 @@
       <div id="current-refinements"></div>
       <div id="hits"></div>
     </main>
+
+    <footer class="container footer">
+      Prototype built for a demo · Search by Algolia · Food photos: Unsplash (illustrative, by cuisine)
+    </footer>
 
     <!-- ===== LIBRARIES (loaded from a CDN, no installation needed) ===== -->
     <script src="https://cdn.jsdelivr.net/npm/algoliasearch@5.60.0/dist/lite/builds/browser.umd.js"></script>

@@ -82,7 +82,7 @@ let res = await client.setSettings({
     queryLanguages: ["en"],
     indexLanguages: ["en"],
     removeStopWords: false,                     // keep "the" in "The Palm"
-    removeWordsIfNoResults: "allOptional",      // long queries degrade gracefully
+    removeWordsIfNoResults: "none",      // long queries degrade gracefully
 
     // Display
     attributesToHighlight: ["name", "cuisine", "neighborhood", "city"],

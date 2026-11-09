@@ -71,7 +71,11 @@ Configuration lives in code, so it is versioned in Git and can be re-applied at 
   one-way synonym because it only needs to match a tag, not change the search.
 - **Featured near you:** a second search on the same index (nested `index` widget) that inherits the user's
   location and filters, looks within 5 miles, and uses one distance band so popularity alone sets the order.
-- **Location:** browser GPS → IP location → city picker. Users far from every restaurant get a warning.
+- **Location:** browser GPS → IP location → city picker. Results are limited to **30 miles** of the user or chosen
+  city by default (`aroundRadius`), so "ruths cris" near New York shows the New Jersey branch, not Pittsburgh.
+  "Any distance" is available for people planning a trip. When nothing matches nearby, a "Closest matches further
+  away" row suggests the nearest matching restaurants (a second search with no radius), so there is no dead end.
+  Users far from every restaurant get a warning.
 
 ## Testing and what I changed
 

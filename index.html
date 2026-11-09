@@ -52,10 +52,10 @@
           <button class="pill" data-panel="panel-style">Dining style</button>
           <button class="pill" data-panel="panel-city">City</button>
           <select id="radius-select" class="pill pill--select" aria-label="Distance">
-            <option value="all">Any distance</option>
             <option value="1609">Within 1 mile</option>
             <option value="8047">Within 5 miles</option>
-            <option value="40234">Within 25 miles</option>
+            <option value="48280" selected>Within 30 miles</option>
+            <option value="all">Any distance</option>
           </select>
           <div id="sort-by" class="pill-sort"></div>
           <div id="clear-refinements"></div>
@@ -83,6 +83,12 @@
       <div id="stats"></div>
       <div id="current-refinements"></div>
       <div id="hits"></div>
+
+      <!-- Shown only when nothing matches nearby: the closest matches further away -->
+      <section id="closest-section" class="featured closest" hidden>
+        <h2>Closest matches further away</h2>
+        <div id="closest" class="featured__track"></div>
+      </section>
     </main>
 
     <footer class="container footer">

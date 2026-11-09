@@ -40,6 +40,7 @@ button { font: inherit; color: inherit; }
 .ais-SearchBox-form:focus-within { border-color: var(--accent); }
 .ais-SearchBox-input { flex: 1; border: 0; outline: 0; font-size: 1.05rem; padding: 12px 10px; background: transparent; }
 .ais-SearchBox-submit, .ais-SearchBox-reset { border: 0; background: none; cursor: pointer; padding: 0 8px; }
+.ais-SearchBox-input::-webkit-search-cancel-button { display: none; } /* keep only one "clear" button */
 .ais-SearchBox-submitIcon, .ais-SearchBox-resetIcon { width: 14px; height: 14px; }
 
 .location {
@@ -178,6 +179,8 @@ button { font: inherit; color: inherit; }
 .fcard__body { padding: 10px 12px 12px; display: flex; flex-direction: column; gap: 2px; }
 .fcard__name { font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .fcard__meta { font-size: .8rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.closest { margin-top: 18px; }
 
 /* ---------- Results ---------- */
 .results { padding-top: 18px; padding-bottom: 40px; }

@@ -28,7 +28,7 @@ const { searchBox, infiniteHits, refinementList, ratingMenu,
 // ---------------------------------------------------------------------
 let userLocation = null;   // { lat, lng } or null (= use IP address)
 let locationLabel = "your approximate location";
-let radius = "all";        // "all" or a number of metres
+let radius = "48280";     // default: within 30 miles (in metres); "all" = any distance
 
 // Builds the query parameters that depend on location
 function locationParams() {
@@ -48,7 +48,12 @@ function locationParams() {
 // A "configure" widget we can update later (when the location changes)
 let updateParams = () => {};
 const locationConfigure = instantsearch.connectors.connectConfigure(
-  ({ refine }) => { updateParams = () => refine(locationParams()); }
+  ({ refine }) => {
+    updateParams = () => {
+      search.helper.setPage(0); // a new location or distance always starts again at page 1
+      refine(locationParams());
+    };
+  }
 );
 
 function setStatus(text, isWarning = false) {
@@ -202,35 +207,52 @@ const featuredCarousel = instantsearch.connectors.connectHits(({ items, results,
   if (!show) return;
 
   document.getElementById("featured-title").textContent = `Featured near ${locationLabel}`;
-  trackEl.replaceChildren();
-  for (const hit of items) {
-    const card = el("a", "fcard");
-    card.href = hit.reserve_url;
-    card.target = "_blank";
-    card.rel = "noopener";
-    const image = el("div", "fcard__image", familyIcon(hit.cuisine_hierarchy.lvl0));
-    const photoUrl = familyPhoto(hit.cuisine_hierarchy.lvl0);
-    if (photoUrl) {
-      const img = el("img");
-      img.src = photoUrl;
-      img.alt = "";
-      img.loading = "lazy";
-      img.addEventListener("error", hidePhoto);
-      image.append(img);
-    }
-    image.append(el("span", "fcard__badge", "★ " + hit.stars_count.toFixed(1)));
-    const body = el("div", "fcard__body");
-    const distance = distanceMetres(hit);
-    body.append(
-      el("strong", "fcard__name", hit.name),
-      el("span", "fcard__meta", `${hit.cuisine} · ${dollars(hit.price_level)}`),
-      el("span", "fcard__meta", `${hit.neighborhood}${distance !== undefined ? ` · ${miles(distance)} mi` : ""}`)
-    );
-    card.append(image, body);
-    card.addEventListener("click", () => sendEvent("click", hit, "Featured Restaurant Clicked"));
-    trackEl.append(card);
-  }
+  trackEl.replaceChildren(...items.map((hit) => smallCard(hit, sendEvent, "Featured Restaurant Clicked")));
 });
+
+// A compact restaurant card (photo, rating badge, name, cuisine, distance)
+function smallCard(hit, sendEvent, eventName) {
+  const card = el("a", "fcard");
+  card.href = hit.reserve_url;
+  card.target = "_blank";
+  card.rel = "noopener";
+  const image = el("div", "fcard__image", familyIcon(hit.cuisine_hierarchy.lvl0));
+  const photoUrl = familyPhoto(hit.cuisine_hierarchy.lvl0);
+  if (photoUrl) {
+    const img = el("img");
+    img.src = photoUrl;
+    img.alt = "";
+    img.loading = "lazy";
+    img.addEventListener("error", hidePhoto);
+    image.append(img);
+  }
+  image.append(el("span", "fcard__badge", "★ " + hit.stars_count.toFixed(1)));
+  const body = el("div", "fcard__body");
+  const distance = distanceMetres(hit);
+  body.append(
+    el("strong", "fcard__name", hit.name),
+    el("span", "fcard__meta", `${hit.cuisine} · ${dollars(hit.price_level)}`),
+    el("span", "fcard__meta", `${hit.neighborhood}${distance !== undefined ? ` · ${miles(distance)} mi` : ""}`)
+  );
+  card.append(image, body);
+  card.addEventListener("click", () => sendEvent("click", hit, eventName));
+  return card;
+}
+
+// ---------------------------------------------------------------------
+// 3d. CLOSEST MATCHES: when nothing matches within the chosen distance,
+// suggest the nearest matching restaurants further away (same text and
+// filters, any distance) instead of a dead end.
+// ---------------------------------------------------------------------
+const closestMatches = instantsearch.connectors.connectHits(({ items, sendEvent }) => {
+  const trackEl = document.getElementById("closest");
+  trackEl.replaceChildren(...items.map((hit) => smallCard(hit, sendEvent, "Closest Match Clicked")));
+});
+
+const closestIndex = instantsearch.widgets.index({ indexName: INDEX, indexId: "closest" }).addWidgets([
+  instantsearch.widgets.configure({ hitsPerPage: 4, aroundRadius: "all", getRankingInfo: true }),
+  closestMatches({}),
+]);
 
 const featuredIndex = instantsearch.widgets.index({ indexName: INDEX, indexId: "featured" }).addWidgets([
   instantsearch.widgets.configure({
@@ -248,6 +270,7 @@ const featuredIndex = instantsearch.widgets.index({ indexName: INDEX, indexId: "
 search.addWidgets([
   locationConfigure({ searchParameters: locationParams() }),
   featuredIndex,
+  closestIndex,
 
   searchBox({
     container: "#searchbox",
@@ -319,7 +342,7 @@ search.addWidgets([
     templates: {
       text(data, { html }) {
         const title = data.query
-          ? html`<strong>${data.nbHits.toLocaleString()}</strong> results for “${data.query}”`
+          ? html`<strong>${data.nbHits.toLocaleString()}</strong> ${data.nbHits === 1 ? "result" : "results"} for “${data.query}”`
           : html`<strong>Popular nearby</strong> · ${data.nbHits.toLocaleString()} restaurants`;
         return html`${title} <span class="muted">(${data.processingTimeMS} ms)</span>`;
       },
@@ -368,11 +391,12 @@ search.addWidgets([
           </article>`;
       },
       empty(results, { html }) {
+        const area = radius === "all" ? "" : ` within ${miles(Number(radius))} miles of ${locationLabel}`;
         return html`
           <div class="empty">
-            <h2>No restaurants match “${results.query}”</h2>
+            <h2>No restaurants match${results.query ? html` “${results.query}”` : ""}${area}</h2>
             <p>Try a cuisine (“italian”), a neighbourhood (“soho”), check the spelling,
-               or remove some filters.</p>
+               remove some filters, or choose “Any distance”.</p>
           </div>`;
       },
       showMoreText: "Show more restaurants",
@@ -385,10 +409,18 @@ search.addWidgets([
 // (e.g. testing from London: the dataset only covers the US)
 // ---------------------------------------------------------------------
 search.on("render", () => {
+  const main = search.helper?.lastResults;
+  const closestSection = document.getElementById("closest-section");
+  const hasSuggestions = document.getElementById("closest").children.length > 0;
+  closestSection.hidden = !(main && main.nbHits === 0 && main.query && radius !== "all" && hasSuggestions);
+});
+
+search.on("render", () => {
   const hits = search.helper?.lastResults?.hits || [];
   const nearest = hits[0] ? distanceMetres(hits[0]) : undefined;
   const usingMyLocation = document.getElementById("location-select").value === "auto";
-  if (usingMyLocation && search.helper.state.index === INDEX && nearest > 300000) {
+  const nothingNearby = hits.length === 0 && !search.helper.state.query; // e.g. London + "within 30 miles"
+  if (usingMyLocation && search.helper.state.index === INDEX && (nearest > 300000 || nothingNearby)) {
     setStatus("You seem far from our restaurants (this demo covers US cities). Pick a city in the “Near” menu.", true);
   }
 });

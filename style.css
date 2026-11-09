@@ -48,6 +48,10 @@ button { font: inherit; color: inherit; }
 }
 .location select { border: 0; background: transparent; padding: 10px 8px; font-size: 1rem; cursor: pointer; }
 .location-status { min-height: 1.2em; font-size: .88rem; color: var(--muted); margin: 10px 0 0; }
+.location-status--warning {
+  display: inline-block; color: var(--accent-dark); background: var(--accent-soft);
+  font-weight: 700; padding: 6px 12px; border-radius: 999px;
+}
 
 /* ---------- Discovery: sticky band with carousel + filter bar ---------- */
 .discover {

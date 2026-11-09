@@ -6,8 +6,8 @@
 // 1. CONNECT TO ALGOLIA
 // The Search-Only key is PUBLIC by design: it can only read, never write.
 // ---------------------------------------------------------------------
-const ALGOLIA_APP_ID = "YOUR_APP_ID";
-const ALGOLIA_SEARCH_KEY = "YOUR_SEARCH_ONLY_API_KEY";
+const ALGOLIA_APP_ID = "7A9UXTGE6W";
+const ALGOLIA_SEARCH_KEY = "0786e42f8c38ea74e53701c4eeda78c4";
 const INDEX = "restaurants";
 
 const { liteClient: algoliasearch } = window["algoliasearch/lite"];
@@ -51,8 +51,10 @@ const locationConfigure = instantsearch.connectors.connectConfigure(
   ({ refine }) => { updateParams = () => refine(locationParams()); }
 );
 
-function setStatus(text) {
-  document.getElementById("location-status").textContent = text;
+function setStatus(text, isWarning = false) {
+  const status = document.getElementById("location-status");
+  status.textContent = text;
+  status.classList.toggle("location-status--warning", isWarning); // red style for warnings
 }
 
 function useBrowserLocation() {
@@ -99,6 +101,22 @@ document.getElementById("radius-select").addEventListener("change", (e) => {
 const dollars = (level) => "$".repeat(level);
 const miles = (metres) => (metres / 1609).toFixed(metres < 16090 ? 1 : 0);
 const initials = (name) => name.split(" ").slice(0, 2).map((w) => w[0]).join("");
+
+// Real distance in metres between two points on Earth (haversine formula)
+function haversine(a, b) {
+  const R = 6371000, toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat), dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+// Algolia's geoDistance is divided by the precision band (aroundPrecision),
+// so we compute the real distance ourselves when we know the user's position.
+function distanceMetres(hit) {
+  if (userLocation && hit._geoloc) return haversine(userLocation, hit._geoloc);
+  const info = hit._rankingInfo;
+  return info?.geoDistance !== undefined ? info.geoDistance * (info.geoPrecision || 1) : undefined;
+}
 
 // ---------------------------------------------------------------------
 // 3b. CUISINE CAROUSEL (Deliveroo-style tiles, built on the hierarchical menu)
@@ -174,7 +192,7 @@ const featuredCarousel = instantsearch.connectors.connectHits(({ items, results,
     const image = el("div", "fcard__image", initials(hit.brand));
     image.append(el("span", "fcard__badge", "★ " + hit.stars_count.toFixed(1)));
     const body = el("div", "fcard__body");
-    const distance = hit._rankingInfo?.geoDistance;
+    const distance = distanceMetres(hit);
     body.append(
       el("strong", "fcard__name", hit.name),
       el("span", "fcard__meta", `${hit.cuisine} · ${dollars(hit.price_level)}`),
@@ -286,7 +304,7 @@ search.addWidgets([
     cssClasses: { list: "cards", loadMore: "load-more" },
     templates: {
       item(hit, { html, components, sendEvent }) {
-        const distance = hit._rankingInfo?.geoDistance;
+        const distance = distanceMetres(hit);
         return html`
           <article class="card" onClick=${() => sendEvent("click", hit, "Restaurant Clicked")}>
             <div class="card__image">
@@ -339,9 +357,10 @@ search.addWidgets([
 // ---------------------------------------------------------------------
 search.on("render", () => {
   const hits = search.helper?.lastResults?.hits || [];
-  const nearest = hits[0]?._rankingInfo?.geoDistance;
-  if (!userLocation && search.helper.state.index === INDEX && nearest > 300000) {
-    setStatus("You seem far from our restaurants (this demo covers US cities). Pick a city in the “Near” menu.");
+  const nearest = hits[0] ? distanceMetres(hits[0]) : undefined;
+  const usingMyLocation = document.getElementById("location-select").value === "auto";
+  if (usingMyLocation && search.helper.state.index === INDEX && nearest > 300000) {
+    setStatus("You seem far from our restaurants (this demo covers US cities). Pick a city in the “Near” menu.", true);
   }
 });
 

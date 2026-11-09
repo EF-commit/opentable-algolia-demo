@@ -97,6 +97,13 @@ haven't typed anything, so a regular can rebook in one click. For the demo they'
 (localStorage). In a real product they'd live in the diner's OpenTable account, and each favourite is already sent
 to Algolia as an event, which is the kind of signal Personalization learns from.
 
+"Similar nearby": after a name search like "nobu" or "le bernardin", three alternatives appear under the result:
+same cuisine, within 5 miles of that restaurant, and a similar rating (±0.3 stars, relaxed to ±0.5 and 15 miles if
+there aren't enough). Handy when your first choice is fully booked. It only triggers when every word matches the
+top result's name and there are 5 results or fewer, so a broad search like "sushi" doesn't trigger it. In
+production I'd use Algolia Recommend (Related Items), which learns this from click and booking events instead of
+fixed rules.
+
 "Featured near you" is a second search on the same index. It uses the same location and filters, looks within
 5 miles, and puts everything in one distance band, so popularity alone decides the order.
 

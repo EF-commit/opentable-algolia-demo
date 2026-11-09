@@ -493,6 +493,47 @@ async function showPopularFallback(main) {
   document.getElementById("popular-title").textContent = `Popular near ${locationLabel} instead`;
   document.getElementById("popular").replaceChildren(...hits.map((hit) => smallCard(hit, null, "")));
 }
+// ---------------------------------------------------------------------
+// 6b. SIMILAR NEARBY: after a name search ("nobu"), suggest places with the
+// same cuisine, close to THAT restaurant, with a similar rating.
+// In production, Algolia Recommend's Related Items model would learn this
+// from click and booking events; here it's a rules-based version.
+// ---------------------------------------------------------------------
+let similarLoadedFor = "";
+async function showSimilar(main) {
+  const section = document.getElementById("similar-section");
+  const top = main?.hits?.[0];
+  // A "name search" = every word typed matched the top result's name, and only a
+  // handful of results (so "sushi", which matches 50 names, doesn't count)
+  const nameSearch = main?.query && main.nbHits <= 5 && top?._highlightResult?.name?.matchLevel === "full";
+  if (!nameSearch || !top._geoloc) { section.hidden = true; return; }
+  section.hidden = false;
+  if (similarLoadedFor === top.objectID) return; // already loaded for this restaurant
+  similarLoadedFor = top.objectID;
+
+  const ask = (starsMargin, radius) => searchClient.search([{
+    indexName: INDEX,
+    params: {
+      query: "",
+      filters: `cuisine:"${top.cuisine}" AND stars_count:${(top.stars_count - starsMargin).toFixed(1)} TO ${(top.stars_count + starsMargin).toFixed(1)} AND NOT objectID:"${top.objectID}"`,
+      aroundLatLng: `${top._geoloc.lat},${top._geoloc.lng}`,
+      aroundRadius: radius,
+      aroundPrecision: 1000,
+      hitsPerPage: 3, // keep it short: three alternatives, no more
+      analytics: false,
+    },
+  }]).then((response) => response.results[0].hits);
+
+  let hits = await ask(0.3, 8047);                 // ±0.3 stars, within 5 miles
+  if (hits.length < 3) hits = await ask(0.5, 24140); // relax: ±0.5 stars, within 15 miles
+  if (hits.length === 0) { section.hidden = true; return; }
+
+  // Distances on these cards are from the user, like everywhere else
+  document.getElementById("similar-title").textContent = `Similar to ${top.name} nearby`;
+  document.getElementById("similar").replaceChildren(...hits.map((hit) => smallCard(hit, null, "")));
+}
+search.on("render", () => showSimilar(search.helper?.lastResults));
+
 search.on("render", () => showPopularFallback(search.helper?.lastResults));
 search.on("render", renderFavourites);
 

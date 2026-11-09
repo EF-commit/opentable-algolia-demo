@@ -191,6 +191,61 @@ const cuisineCarousel = instantsearch.connectors.connectHierarchicalMenu(({ item
 });
 
 // ---------------------------------------------------------------------
+// 3b+. FAVOURITES: a heart on every card, saved in this browser.
+// In production they would live in the diner's OpenTable account; each
+// favourite is also sent to Algolia as an event (input for Personalization).
+// ---------------------------------------------------------------------
+const FAVOURITES_KEY = "tablefinder:favourites";
+function loadFavourites() {
+  try { return JSON.parse(localStorage.getItem(FAVOURITES_KEY)) || {}; } catch { return {}; }
+}
+function saveFavourites(favourites) {
+  try { localStorage.setItem(FAVOURITES_KEY, JSON.stringify(favourites)); } catch { /* storage blocked: ignore */ }
+}
+const isFavourite = (id) => Boolean(loadFavourites()[id]);
+
+// Keep only what a card needs, so the favourites row works without a search
+const FAVOURITE_FIELDS = ["objectID", "name", "brand", "cuisine", "price_level", "stars_count",
+  "neighborhood", "city", "state", "reserve_url", "cuisine_hierarchy", "_geoloc"];
+
+function toggleFavourite(hit, sendEvent) {
+  const favourites = loadFavourites();
+  if (favourites[hit.objectID]) {
+    delete favourites[hit.objectID];
+  } else {
+    favourites[hit.objectID] = Object.fromEntries(FAVOURITE_FIELDS.map((field) => [field, hit[field]]));
+    if (sendEvent) sendEvent("conversion", hit, "Restaurant Favourited");
+  }
+  saveFavourites(favourites);
+  // Update every heart for this restaurant on the page, then the favourites row
+  document.querySelectorAll(`.fav[data-id="${hit.objectID}"]`)
+    .forEach((button) => button.classList.toggle("fav--on", Boolean(favourites[hit.objectID])));
+  renderFavourites();
+}
+
+function heartButton(hit, sendEvent) {
+  const button = el("button", isFavourite(hit.objectID) ? "fav fav--on" : "fav", "♥");
+  button.dataset.id = hit.objectID;
+  button.setAttribute("aria-label", "Save to favourites");
+  button.addEventListener("click", (event) => {
+    event.preventDefault();   // don't open the booking link
+    event.stopPropagation();  // don't count as a card click
+    toggleFavourite(hit, sendEvent);
+  });
+  return button;
+}
+
+// "Your favourites" row: on the browse view (nothing typed), when there are some
+function renderFavourites() {
+  const section = document.getElementById("favourites-section");
+  const favourites = Object.values(loadFavourites());
+  const browsing = !search.helper?.state.query;
+  section.hidden = !(browsing && favourites.length > 0);
+  if (section.hidden) return;
+  document.getElementById("favourites").replaceChildren(...favourites.map((hit) => smallCard(hit, null, "")));
+}
+
+// ---------------------------------------------------------------------
 // 3c. FEATURED CAROUSEL: best-loved restaurants within 5 miles
 // A second, smaller search on the same index. It shares the user's location,
 // but looks only within 5 miles and puts them all in ONE distance band
@@ -234,8 +289,9 @@ function smallCard(hit, sendEvent, eventName) {
     el("span", "fcard__meta", `${hit.cuisine} · ${dollars(hit.price_level)}`),
     el("span", "fcard__meta", `${hit.neighborhood}${distance !== undefined ? ` · ${miles(distance)} mi` : ""}`)
   );
+  image.append(heartButton(hit, sendEvent));
   card.append(image, body);
-  card.addEventListener("click", () => sendEvent("click", hit, eventName));
+  if (sendEvent) card.addEventListener("click", () => sendEvent("click", hit, eventName));
   return card;
 }
 
@@ -358,6 +414,9 @@ search.addWidgets([
         return html`
           <article class="card" onClick=${() => sendEvent("click", hit, "Restaurant Clicked")}>
             <div class="card__image">
+              <button class=${isFavourite(hit.objectID) ? "fav fav--on" : "fav"} data-id=${hit.objectID}
+                      aria-label="Save to favourites"
+                      onClick=${(e) => { e.stopPropagation(); toggleFavourite(hit, sendEvent); }}>♥</button>
               <span class="card__emoji">${familyIcon(hit.cuisine_hierarchy.lvl0)}</span>
               ${familyPhoto(hit.cuisine_hierarchy.lvl0)
                 ? html`<img src=${familyPhoto(hit.cuisine_hierarchy.lvl0)} alt="" loading="lazy" onError=${hidePhoto} />`
@@ -432,9 +491,10 @@ async function showPopularFallback(main) {
   if (hits.length === 0) hits = await ask({ aroundRadius: "all" }); // nothing nearby at all: widen
 
   document.getElementById("popular-title").textContent = `Popular near ${locationLabel} instead`;
-  document.getElementById("popular").replaceChildren(...hits.map((hit) => smallCard(hit, () => {}, "")));
+  document.getElementById("popular").replaceChildren(...hits.map((hit) => smallCard(hit, null, "")));
 }
 search.on("render", () => showPopularFallback(search.helper?.lastResults));
+search.on("render", renderFavourites);
 
 search.on("render", () => {
   const main = search.helper?.lastResults;

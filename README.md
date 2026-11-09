@@ -17,6 +17,7 @@ menu (New York works well).
 |---|---|---|
 | Names are hard to spell | `ruths cris`, `capital gri`, `bluewater` still find the restaurant | Typo tolerance, prefix search, word splitting/joining |
 | Chains with several locations | Nearest branch first, full address on the card, "N restaurants share this name" badge | Geo ranking (`aroundLatLng`), data enrichment |
+| Regulars want to get back to their usual places fast | Heart any restaurant; "Your favourites" sits at the top of the page | Favourite sent as an Insights event (input for Personalization) |
 | Weak discovery | Cuisine carousel (10 families → cuisines), Occasion filter (Date night, Hidden gem…), price, rating, style, city, distance, sorting, **Featured near you** | Facets, hierarchical menu, replicas, nested index |
 | Feels old | Results on every keystroke, shareable URLs, phone layout | InstantSearch.js, routing |
 | Conversion | "Restaurant clicked" and "Reservation started" events | Insights API → Analytics, A/B testing, Dynamic Re-Ranking, Personalization |
@@ -90,6 +91,11 @@ branch and not Pittsburgh. You can switch to "Any distance" if you're planning a
 a "Closest matches further away" row shows the nearest options. And whenever a search returns nothing at all
 (even `asdfgh`), the page still shows popular places nearby underneath the message, so there's never an empty page. And if you're nowhere near
 any restaurant (like me testing from London), you get a warning to pick a city.
+
+Favourites: there's a heart on every card. Saved places show up in a "Your favourites" row at the top when you
+haven't typed anything, so a regular can rebook in one click. For the demo they're stored in the browser
+(localStorage). In a real product they'd live in the diner's OpenTable account, and each favourite is already sent
+to Algolia as an event, which is the kind of signal Personalization learns from.
 
 "Featured near you" is a second search on the same index. It uses the same location and filters, looks within
 5 miles, and puts everything in one distance band, so popularity alone decides the order.

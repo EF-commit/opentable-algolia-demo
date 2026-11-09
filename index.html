@@ -8,15 +8,15 @@
   </head>
 
   <body>
-    <!-- ===== TOP BAR: search box + location ===== -->
-    <header class="hero">
-      <div class="hero__inner">
-        <p class="hero__brand">TableFinder <span>prototype · powered by Algolia</span></p>
+    <!-- ===== TOP: brand, headline, search box + location ===== -->
+    <header class="top">
+      <div class="container">
+        <p class="brand">TableFinder <span>prototype · powered by Algolia</span></p>
         <h1>Find a table you'll love</h1>
-        <div class="hero__search">
+        <div class="search-row">
           <div id="searchbox"></div>
           <label class="location">
-            <span>Near</span>
+            <span>📍 Near</span>
             <select id="location-select">
               <option value="auto">My location</option>
               <option value="40.7128,-74.0060">New York</option>
@@ -30,44 +30,59 @@
           </label>
         </div>
         <p id="location-status" class="location-status"></p>
-        <!-- "Explore by experience" chips: discovery for users with no restaurant in mind -->
-        <div id="experiences" class="chips"></div>
       </div>
     </header>
 
-    <!-- ===== MAIN AREA: filters on the left, results on the right ===== -->
-    <main class="layout">
-      <details class="filters" open>
-        <summary>Filters</summary>
-        <div id="clear-refinements"></div>
-        <h3>Cuisine</h3>
-        <div id="cuisine"></div>
-        <h3>Price</h3>
-        <div id="price"></div>
-        <h3>Rating</h3>
-        <div id="rating"></div>
-        <h3>Dining style</h3>
-        <div id="dining-style"></div>
-        <h3>City</h3>
-        <div id="city"></div>
-      </details>
-
-      <section class="results">
-        <div class="results__bar">
-          <div id="stats"></div>
-          <div class="results__controls">
-            <select id="radius-select" aria-label="Distance">
-              <option value="all">Any distance</option>
-              <option value="1609">Within 1 mile</option>
-              <option value="8047">Within 5 miles</option>
-              <option value="40234">Within 25 miles</option>
-            </select>
-            <div id="sort-by"></div>
-          </div>
+    <!-- ===== DISCOVERY: cuisine carousel + filter bar (Deliveroo style) ===== -->
+    <nav class="discover">
+      <div class="container">
+        <!-- Row 1: cuisine families as a scrollable carousel -->
+        <div class="carousel">
+          <button class="carousel__arrow carousel__arrow--left" aria-label="Scroll left">‹</button>
+          <div id="cuisine-carousel" class="carousel__track"></div>
+          <button class="carousel__arrow carousel__arrow--right" aria-label="Scroll right">›</button>
         </div>
-        <div id="current-refinements"></div>
-        <div id="hits"></div>
+        <div id="sub-cuisines" class="sub-cuisines"></div>
+
+        <!-- Row 2: one line of filter pills -->
+        <div class="filterbar">
+          <div id="experiences" class="chips"></div>
+          <span class="filterbar__divider"></span>
+          <button class="pill" data-panel="panel-price">Price</button>
+          <button class="pill" data-panel="panel-rating">Rating</button>
+          <button class="pill" data-panel="panel-style">Dining style</button>
+          <button class="pill" data-panel="panel-city">City</button>
+          <select id="radius-select" class="pill pill--select" aria-label="Distance">
+            <option value="all">Any distance</option>
+            <option value="1609">Within 1 mile</option>
+            <option value="8047">Within 5 miles</option>
+            <option value="40234">Within 25 miles</option>
+          </select>
+          <div id="sort-by" class="pill-sort"></div>
+          <div id="clear-refinements"></div>
+        </div>
+
+        <!-- Drop-down panels: one opens under the bar when its pill is clicked -->
+        <div class="panels">
+          <div class="panel" id="panel-price"><div id="price"></div></div>
+          <div class="panel" id="panel-rating"><div id="rating"></div></div>
+          <div class="panel" id="panel-style"><div id="dining-style"></div></div>
+          <div class="panel" id="panel-city"><div id="city"></div></div>
+        </div>
+      </div>
+    </nav>
+
+    <!-- ===== RESULTS ===== -->
+    <main class="container results">
+      <!-- "Featured near you": top restaurants within 5 miles of the user -->
+      <section id="featured-section" class="featured" hidden>
+        <h2 id="featured-title">Featured near you</h2>
+        <div id="featured" class="featured__track"></div>
       </section>
+
+      <div id="stats"></div>
+      <div id="current-refinements"></div>
+      <div id="hits"></div>
     </main>
 
     <!-- ===== LIBRARIES (loaded from a CDN, no installation needed) ===== -->

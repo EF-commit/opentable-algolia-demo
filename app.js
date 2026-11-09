@@ -20,7 +20,7 @@ const search = instantsearch({
   routing: true,        // the URL reflects the search, so it can be shared
 });
 
-const { searchBox, infiniteHits, hierarchicalMenu, refinementList, ratingMenu,
+const { searchBox, infiniteHits, refinementList, ratingMenu,
   sortBy, stats, clearRefinements, currentRefinements } = instantsearch.widgets;
 
 // ---------------------------------------------------------------------
@@ -101,10 +101,107 @@ const miles = (metres) => (metres / 1609).toFixed(metres < 16090 ? 1 : 0);
 const initials = (name) => name.split(" ").slice(0, 2).map((w) => w[0]).join("");
 
 // ---------------------------------------------------------------------
+// 3b. CUISINE CAROUSEL (Deliveroo-style tiles, built on the hierarchical menu)
+// Row of cuisine families; picking one reveals its cuisines as small pills.
+// ---------------------------------------------------------------------
+const FAMILIES = [
+  ["American", "🍔"], ["Italian & Pizza", "🍝"], ["Asian", "🍣"], ["Steak & Seafood", "🥩"],
+  ["French & European", "🥐"], ["Latin American", "🌮"], ["Mediterranean & Middle Eastern", "🥙"],
+  ["Bars & Pubs", "🍺"], ["Global & Fusion", "🌍"], ["Healthy & Plant-based", "🥗"],
+];
+const familyOrder = (name) => {
+  const i = FAMILIES.findIndex(([family]) => family === name);
+  return i === -1 ? 99 : i;
+};
+
+// Small helper: create an element with a class and text
+function el(tag, className, text) {
+  const node = document.createElement(tag);
+  if (className) node.className = className;
+  if (text !== undefined) node.textContent = text;
+  return node;
+}
+
+const cuisineCarousel = instantsearch.connectors.connectHierarchicalMenu(({ items, refine }) => {
+  const track = document.getElementById("cuisine-carousel");
+  const sub = document.getElementById("sub-cuisines");
+  track.replaceChildren();
+  sub.replaceChildren();
+
+  for (const item of items) {
+    const tile = el("button", item.isRefined ? "tile tile--active" : "tile");
+    const icon = (FAMILIES.find(([family]) => family === item.label) || [, "🍽️"])[1];
+    tile.append(el("span", "tile__icon", icon), el("span", "tile__label", item.label),
+      el("span", "tile__count", item.count.toLocaleString()));
+    tile.addEventListener("click", () => refine(item.value));
+    track.append(tile);
+
+    // The selected family shows its cuisines underneath (e.g. Asian -> Sushi, Thai...)
+    if (item.isRefined && item.data) {
+      for (const child of item.data) {
+        const pill = el("button", child.isRefined ? "chip-btn chip-btn--active" : "chip-btn", child.label);
+        pill.append(el("span", "chip-btn__count", child.count.toLocaleString()));
+        pill.addEventListener("click", () => refine(child.value));
+        sub.append(pill);
+      }
+    }
+  }
+});
+
+// ---------------------------------------------------------------------
+// 3c. FEATURED CAROUSEL: best-loved restaurants within 5 miles
+// A second, smaller search on the same index. It shares the user's location,
+// but looks only within 5 miles and puts them all in ONE distance band
+// (aroundPrecision = radius), so popularity decides the order.
+// ---------------------------------------------------------------------
+const FEATURED_RADIUS = 8047; // 5 miles in metres
+
+const featuredCarousel = instantsearch.connectors.connectHits(({ items, results, sendEvent }) => {
+  const section = document.getElementById("featured-section");
+  const trackEl = document.getElementById("featured");
+  // Only on the "browse" view: no text typed and some places nearby
+  const show = results && !results.query && items.length > 0;
+  section.hidden = !show;
+  if (!show) return;
+
+  document.getElementById("featured-title").textContent = `Featured near ${locationLabel}`;
+  trackEl.replaceChildren();
+  for (const hit of items) {
+    const card = el("a", "fcard");
+    card.href = hit.reserve_url;
+    card.target = "_blank";
+    card.rel = "noopener";
+    const image = el("div", "fcard__image", initials(hit.brand));
+    image.append(el("span", "fcard__badge", "★ " + hit.stars_count.toFixed(1)));
+    const body = el("div", "fcard__body");
+    const distance = hit._rankingInfo?.geoDistance;
+    body.append(
+      el("strong", "fcard__name", hit.name),
+      el("span", "fcard__meta", `${hit.cuisine} · ${dollars(hit.price_level)}`),
+      el("span", "fcard__meta", `${hit.neighborhood}${distance !== undefined ? ` · ${miles(distance)} mi` : ""}`)
+    );
+    card.append(image, body);
+    card.addEventListener("click", () => sendEvent("click", hit, "Featured Restaurant Clicked"));
+    trackEl.append(card);
+  }
+});
+
+const featuredIndex = instantsearch.widgets.index({ indexName: INDEX, indexId: "featured" }).addWidgets([
+  instantsearch.widgets.configure({
+    hitsPerPage: 10,
+    aroundRadius: FEATURED_RADIUS,
+    aroundPrecision: FEATURED_RADIUS,
+    getRankingInfo: true,
+  }),
+  featuredCarousel({}),
+]);
+
+// ---------------------------------------------------------------------
 // 4. WIDGETS (each one draws a piece of the page)
 // ---------------------------------------------------------------------
 search.addWidgets([
   locationConfigure({ searchParameters: locationParams() }),
+  featuredIndex,
 
   searchBox({
     container: "#searchbox",
@@ -121,11 +218,11 @@ search.addWidgets([
     cssClasses: { list: "chips__list", item: "chip", selectedItem: "chip--active" },
   }),
 
-  hierarchicalMenu({
-    container: "#cuisine",
+  cuisineCarousel({
     attributes: ["cuisine_hierarchy.lvl0", "cuisine_hierarchy.lvl1"],
-    limit: 10,
-    showMore: true,
+    limit: 30,
+    // Families keep a fixed order (tiles don't jump around); cuisines by popularity
+    sortBy: (a, b) => familyOrder(a.name) - familyOrder(b.name) || b.count - a.count,
   }),
 
   refinementList({
@@ -151,8 +248,16 @@ search.addWidgets([
     showMore: true,
   }),
 
-  clearRefinements({ container: "#clear-refinements", templates: { resetLabel: "Clear all filters" } }),
-  currentRefinements({ container: "#current-refinements" }),
+  clearRefinements({ container: "#clear-refinements", templates: { resetLabel: "Clear all" } }),
+  currentRefinements({
+    container: "#current-refinements",
+    // Friendly names instead of technical attribute names
+    transformItems: (items) => items.map((item) => ({
+      ...item,
+      label: { "cuisine_hierarchy.lvl0": "Cuisine", price_range: "Price", stars_count: "Rating",
+        dining_style: "Style", city: "City", experiences: "Experience" }[item.attribute] || item.label,
+    })),
+  }),
 
   sortBy({
     container: "#sort-by",
@@ -170,7 +275,7 @@ search.addWidgets([
       text(data, { html }) {
         const title = data.query
           ? html`<strong>${data.nbHits.toLocaleString()}</strong> results for “${data.query}”`
-          : html`<strong>Popular near ${locationLabel}</strong> · ${data.nbHits.toLocaleString()} restaurants`;
+          : html`<strong>Popular nearby</strong> · ${data.nbHits.toLocaleString()} restaurants`;
         return html`${title} <span class="muted">(${data.processingTimeMS} ms)</span>`;
       },
     },
@@ -246,5 +351,46 @@ search.on("render", () => {
 search.start();
 useBrowserLocation();
 
-// On phones, start with the filters folded away
-if (window.innerWidth < 760) document.querySelector(".filters").removeAttribute("open");
+// ---------------------------------------------------------------------
+// 7. FILTER BAR: open/close the drop-down panels, show active filters on pills
+// ---------------------------------------------------------------------
+const pills = document.querySelectorAll(".pill[data-panel]");
+function closePanels() {
+  document.querySelectorAll(".panel--open, .pill--open")
+    .forEach((node) => node.classList.remove("panel--open", "pill--open"));
+}
+pills.forEach((pill) => {
+  pill.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const panel = document.getElementById(pill.dataset.panel);
+    const wasOpen = panel.classList.contains("panel--open");
+    closePanels();
+    if (!wasOpen) { panel.classList.add("panel--open"); pill.classList.add("pill--open"); }
+  });
+});
+document.addEventListener("click", (event) => {
+  // click outside = close (ignore clicks on elements the widgets just re-drew)
+  if (event.target.isConnected && !event.target.closest(".panels")) closePanels();
+});
+
+// Carousel arrows scroll the row of cuisine tiles
+const track = document.getElementById("cuisine-carousel");
+document.querySelector(".carousel__arrow--left").addEventListener("click", () => track.scrollBy({ left: -320, behavior: "smooth" }));
+document.querySelector(".carousel__arrow--right").addEventListener("click", () => track.scrollBy({ left: 320, behavior: "smooth" }));
+
+// "Price · 1": each pill shows how many of its filters are active
+const PILL_FILTERS = { "panel-price": "price_range", "panel-style": "dining_style", "panel-city": "city" };
+search.on("render", () => {
+  const state = search.helper.state;
+  pills.forEach((pill) => {
+    const base = pill.dataset.label || (pill.dataset.label = pill.textContent);
+    let active = 0;
+    if (PILL_FILTERS[pill.dataset.panel]) {
+      active = (state.disjunctiveFacetsRefinements[PILL_FILTERS[pill.dataset.panel]] || []).length;
+    } else if (pill.dataset.panel === "panel-rating") {
+      active = Object.keys(state.numericRefinements.stars_count || {}).length ? 1 : 0;
+    }
+    pill.textContent = active ? `${base} · ${active}` : base;
+    pill.classList.toggle("pill--active", active > 0);
+  });
+});

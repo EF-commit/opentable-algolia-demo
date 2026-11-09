@@ -87,7 +87,8 @@ Other settings:
 Location works like this: browser GPS if the user allows it, otherwise their IP, and there's a city picker for
 everything else. By default results stay within 30 miles, so "ruths cris" near New York shows the New Jersey
 branch and not Pittsburgh. You can switch to "Any distance" if you're planning a trip. If nothing matches nearby,
-a "Closest matches further away" row shows the nearest options instead of a dead end. And if you're nowhere near
+a "Closest matches further away" row shows the nearest options. And whenever a search returns nothing at all
+(even `asdfgh`), the page still shows popular places nearby underneath the message, so there's never an empty page. And if you're nowhere near
 any restaurant (like me testing from London), you get a warning to pick a city.
 
 "Featured near you" is a second search on the same index. It uses the same location and filters, looks within

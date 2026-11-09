@@ -408,6 +408,34 @@ search.addWidgets([
 // 5. FRIENDLY WARNING if the user is far from every restaurant
 // (e.g. testing from London: the dataset only covers the US)
 // ---------------------------------------------------------------------
+// ---------------------------------------------------------------------
+// 6. NEVER AN EMPTY PAGE: when a search returns nothing, also show popular
+// places near the user. It's a separate, direct query: no text, no filters,
+// just location, so it always has something to show.
+// ---------------------------------------------------------------------
+let popularLoadedFor = "";
+async function showPopularFallback(main) {
+  const section = document.getElementById("popular-section");
+  if (!main || main.nbHits > 0) { section.hidden = true; return; }
+  section.hidden = false;
+
+  const params = locationParams();
+  const key = JSON.stringify(params);
+  if (key === popularLoadedFor) return; // already loaded for this location
+  popularLoadedFor = key;
+
+  const ask = (extra) => searchClient
+    .search([{ indexName: INDEX, params: { ...params, aroundPrecision: 8047, ...extra, query: "", hitsPerPage: 8, analytics: false } }])
+    .then((response) => response.results[0].hits);
+  let hits = await ask({});
+  // 5-mile bands: among places nearby, the most popular come first
+  if (hits.length === 0) hits = await ask({ aroundRadius: "all" }); // nothing nearby at all: widen
+
+  document.getElementById("popular-title").textContent = `Popular near ${locationLabel} instead`;
+  document.getElementById("popular").replaceChildren(...hits.map((hit) => smallCard(hit, () => {}, "")));
+}
+search.on("render", () => showPopularFallback(search.helper?.lastResults));
+
 search.on("render", () => {
   const main = search.helper?.lastResults;
   const closestSection = document.getElementById("closest-section");
@@ -426,13 +454,13 @@ search.on("render", () => {
 });
 
 // ---------------------------------------------------------------------
-// 6. START
+// 7. START
 // ---------------------------------------------------------------------
 search.start();
 useBrowserLocation();
 
 // ---------------------------------------------------------------------
-// 7. FILTER BAR: open/close the drop-down panels, show active filters on pills
+// 8. FILTER BAR: open/close the drop-down panels, show active filters on pills
 // ---------------------------------------------------------------------
 const pills = document.querySelectorAll(".pill[data-panel]");
 function closePanels() {

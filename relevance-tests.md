@@ -14,7 +14,7 @@ All results below were observed on the live `restaurants` index.
 | 6b | City in the query vs location | `sushi san diego` (Near: New York) | Something useful | 0 within 30 mi of New York; the Closest matches row offers the San Diego results | None needed | – |
 | 7 | Intent word (rule) | `cheap mexican` | Mexican, $30 and under | Rule `cheap` fired ("cheap" removed, price filter applied): 24 results, Pulqueria, La Esquina, Tacombi Fonda Nolita – all $30 and under | None needed | – |
 | 8 | Empty search (discovery) | (nothing typed) | Featured + popular nearby | 1,104 restaurants within 30 mi, popular first (Woolworth Tower Kitchen, Dark Horse, Benares – Tribeca); Featured near New York row; cuisine tiles with counts | None needed | – |
-| 9 | No results | `asdfgh` | Friendly empty state | "No restaurants match "asdfgh" within 30 miles of New York" + suggestions | None needed | – |
+| 9 | No results | `asdfgh` | Never an empty page | Only the "No restaurants match" message: a dead end | Added a "Popular near New York instead" row under the message (direct query: location only, no text, no filters) | Message + 8 popular places nearby |
 | 10 | Postal code | `10012` | Restaurants in that ZIP, no near-miss ZIPs | 59 results in SoHo (La Esquina, Café Select…); no typo matches on numbers | None needed | – |
 | 11 | Synonym (one-way) | `romantic` | Date night places | 124 results: Ecco, Marc Forgione, Tamarind – Tribeca | Moved from a rule to a one-way synonym (free plan rule limit) | Works as before |
 | 12 | Location words | `steak near me` | Steakhouses near me | Rule `near-me` fired ("near me" removed): 39 steakhouses near New York | None needed | – |

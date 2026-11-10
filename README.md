@@ -1,6 +1,6 @@
 # TableFinder – restaurant search prototype for OpenTable (Algolia)
 
-Live demo: _paste your GitHub Pages link here_
+Live demo: https://ef-commit.github.io/opentable-algolia-demo/
 
 This is my take on the OpenTable brief. From the discovery notes there are really two kinds of users. Some already
 know where they want to eat and just need to find it fast, even if they spell it wrong or the place is a chain with
@@ -74,7 +74,7 @@ place 50 metres closer would always beat a much better one.
 
 Other settings:
 
-- Typos: default tolerance, but none on numbers or postal codes (10012 and 10021 are different places).
+- Typos: `typoTolerance: "min"`, so typo matches only show up when there's no exact match. None on numbers or postal codes (10012 and 10021 are different places).
   Plurals ignored. I kept stop words because a lot of names start with "The".
 - `removeWordsIfNoResults: none`. I started with `allOptional` and changed it after testing (see below).
 - Sorting uses three standard replicas: Top rated, Most reviewed, Price low to high.
@@ -125,6 +125,9 @@ made me change something:
   so `allOptional` quietly dropped "capital" and matched "grill". That's worse than nothing for someone looking
   for a specific restaurant. With `none`, the page says nothing matches nearby and the closest-matches row
   offers The Capital Grille in Pittsburgh. The downside is that long, chatty searches don't degrade as nicely.
+- "nobu" also returned Nougatine, one letter off ("nou..."). It ranked second so the order was fine, but for an
+  exact name it's noise. I switched `typoTolerance` from `true` to `"min"`: typo matches are now hidden when exact
+  ones exist, and "ruths cris" still works because there's no exact match for it.
 - The city rule only filters on the exact `city` value. "sushi san diego" returns 2 places, because sushi
   places in Coronado or Carlsbad have a different city. Filtering on the metro `area` would be better. I left it
   because I'm out of rules on the free plan.

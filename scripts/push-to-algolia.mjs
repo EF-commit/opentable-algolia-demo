@@ -73,7 +73,7 @@ let res = await client.setSettings({
     ranking: DEFAULT_RANKING,
 
     // Typo & query behaviour
-    typoTolerance: true,
+    typoTolerance: "min",
     minWordSizefor1Typo: 4,
     minWordSizefor2Typos: 8,
     allowTyposOnNumericTokens: false,          // "10012" must not match "10021"

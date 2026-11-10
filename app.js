@@ -7,7 +7,7 @@
 // The Search-Only key is PUBLIC by design: it can only read, never write.
 // ---------------------------------------------------------------------
 const ALGOLIA_APP_ID = "7A9UXTGE6W";
-const ALGOLIA_SEARCH_KEY = "0786e42f8c38ea74e53701c4eeda78c4";
+const ALGOLIA_SEARCH_KEY = "3a40282e6446ee1d227478d0a4462e00";
 const INDEX = "restaurants";
 
 const { liteClient: algoliasearch } = window["algoliasearch/lite"];

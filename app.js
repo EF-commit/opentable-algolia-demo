@@ -608,7 +608,9 @@ search.on("render", () => {
     if (PILL_FILTERS[pill.dataset.panel]) {
       active = (state.disjunctiveFacetsRefinements[PILL_FILTERS[pill.dataset.panel]] || []).length;
     } else if (pill.dataset.panel === "panel-rating") {
-      active = Object.keys(state.numericRefinements.stars_count || {}).length ? 1 : 0;
+      // Active only if one of the rating lists actually holds a value
+      // ("Clear all" empties the lists but leaves them in place)
+      active = Object.values(state.numericRefinements.stars_count || {}).some((values) => values.length) ? 1 : 0;
     }
     pill.textContent = active ? `${base} · ${active}` : base;
     pill.classList.toggle("pill--active", active > 0);
